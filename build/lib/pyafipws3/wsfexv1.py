@@ -90,7 +90,7 @@ class WSFEXv1(BaseWS):
             nombre_cliente="", cuit_pais_cliente="", domicilio_cliente="",
             id_impositivo="", moneda_id="PES", moneda_ctz=1.0,
             obs_comerciales="", obs_generales="", forma_pago="", incoterms="", 
-            idioma_cbte=7, incoterms_ds=None, **kwargs):
+            idioma_cbte=7, incoterms_ds=None, fecha_pago=None, **kwargs):
         "Creo un objeto factura (interna)"
         # Creo una factura electronica de exportación 
 
@@ -114,6 +114,7 @@ class WSFEXv1(BaseWS):
                 'cbtes_asoc': [],
                 'permisos': [],
                 'detalles': [],
+                'fecha_pago': fecha_pago,
             }
         self.factura = fact
 
@@ -162,11 +163,11 @@ class WSFEXv1(BaseWS):
                 'Cbte_nro': f['cbte_nro'],
                 'Tipo_expo': f['tipo_expo'],
                 'Permiso_existente': f['permiso_existente'],
-                'Permisos': f['permisos'] and [
-                    {'Permiso': {
+                'Permisos': f['permisos'] and
+                    {'Permiso': [{
                         'Id_permiso': p['id_permiso'],
                         'Dst_merc': p['dst_merc'],
-                    }} for p in f['permisos']] or None,
+                    }for p in f['permisos']]}  or None,
                 'Dst_cmp': f['pais_dst_cmp'],
                 'Cliente': f['nombre_cliente'],
                 'Cuit_pais_cliente': f['nro_doc'],
@@ -177,19 +178,19 @@ class WSFEXv1(BaseWS):
                 'Obs_comerciales': f['obs_comerciales'],
                 'Imp_total': f['imp_total'],
                 'Obs': f['obs_generales'],
-                'Cmps_asoc': f['cbtes_asoc'] and [
-                    {'Cmp_asoc': {
+                'Cmps_asoc': f['cbtes_asoc'] and
+                    {'Cmp_asoc': [{
                         'Cbte_tipo': c['cbte_tipo'],
                         'Cbte_punto_vta': c['cbte_punto_vta'],
                         'Cbte_nro': c['cbte_nro'],
                         'Cbte_cuit': c['cbte_cuit'],
-                    }} for c in f['cbtes_asoc']] or None,
+                    }for c in f['cbtes_asoc']]} or None,
                 'Forma_pago': f['forma_pago'],
                 'Incoterms': f['incoterms'],
                 'Incoterms_Ds': f['incoterms_ds'],
                 'Idioma_cbte':  f['idioma_cbte'],
-                'Items': [
-                    {'Item': {
+                'Items': f['detalles'] and
+                    {'Item': [{
                         'Pro_codigo': d['codigo'],
                         'Pro_ds': d['ds'],
                         'Pro_qty': d['qty'],
@@ -197,7 +198,8 @@ class WSFEXv1(BaseWS):
                         'Pro_precio_uni': d['precio'],
                         'Pro_bonificacion': d['bonif'],
                         'Pro_total_item': d['importe'],
-                     }} for d in f['detalles']],                    
+                     }for d in f['detalles']]} or None,
+                'Fecha_pago': f['fecha_pago'],
             })
 
         result = ret['FEXAuthorizeResult']

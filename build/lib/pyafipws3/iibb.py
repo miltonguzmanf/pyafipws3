@@ -17,7 +17,8 @@ __copyright__ = "Copyright (C) 2010 Mariano Reingart"
 __license__ = "LGPL 3.0"
 __version__ = "1.01b"
 
-import md5, os, sys, tempfile, traceback
+import os, sys, tempfile, traceback
+from hashlib import md5
 from pysimplesoap.simplexml import SimpleXMLElement
 
 from .utils import WebClient
@@ -83,7 +84,7 @@ class IIBB:
     def Conectar(self, url=None, proxy="", wrapper=None, cacert=None, trace=False, testing=""):
         if HOMO or not url:
             url = URL
-        self.client = WebClient(location=url, trace=trace, cacert=cacert)
+        self.client = WebClient(location=url, trace=trace)
         self.testing = testing
 
     def ConsultarContribuyentes(self, fecha_desde, fecha_hasta, cuit_contribuyente):
@@ -97,12 +98,12 @@ class IIBB:
             self.xml.contribuyentes.contribuyente.cuitContribuyente = cuit_contribuyente
 
             xml = self.xml.as_xml()
-            self.CodigoHash = md5.md5(xml).hexdigest()
+            self.CodigoHash = md5(xml).hexdigest()
             nombre = "DFEServicioConsulta_%s.xml" % self.CodigoHash
 
             # guardo el xml en el archivo a enviar y luego lo re-abro:
             archivo = open(os.path.join(tempfile.gettempdir(), nombre), "w")
-            archivo.write(xml)
+            archivo.write(xml.decode('utf-8'))
             archivo.close()
             archivo = open(os.path.join(tempfile.gettempdir(), nombre), "r")
 
@@ -116,7 +117,7 @@ class IIBB:
             if 'tipoError' in self.xml:
                 self.TipoError = str(self.xml.tipoError)
                 self.CodigoError = str(self.xml.codigoError)
-                self.MensajeError = str(self.xml.mensajeError).decode('latin1').encode("ascii", "replace")
+                self.MensajeError = str(self.xml.mensajeError)
             if 'numeroComprobante' in self.xml:
                 self.NumeroComprobante = str(self.xml.numeroComprobante)
                 self.CantidadContribuyentes = int(self.xml.cantidadContribuyentes)

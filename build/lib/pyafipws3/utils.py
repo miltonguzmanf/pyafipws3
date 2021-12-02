@@ -37,6 +37,7 @@ from email.generator import _make_boundary
 from html.parser import HTMLParser
 from http.cookies import SimpleCookie
 from configparser import SafeConfigParser
+from io import IOBase
 
 from pysimplesoap.client import SimpleXMLElement, SoapClient, SoapFault, parse_proxy, set_http_wrapper
 
@@ -242,9 +243,9 @@ class BaseWS:
             # agregar sufijo para descargar descripción del servicio ?WSDL o ?wsdl
             if not wsdl.endswith(self.WSDL[-5:]) and wsdl.startswith("http"):
                 wsdl += self.WSDL[-5:]
-            if not cache or self.HOMO:
+            #if not cache or self.HOMO:
                 # use 'cache' from installation base directory 
-                cache = os.path.join(self.InstallDir, 'cache')
+            #    cache = os.path.join(self.InstallDir, 'cache')
             # deshabilitar verificación cert. servidor si es nulo falso vacio
             if not cacert:
                 cacert = None
@@ -427,6 +428,11 @@ class BaseWS:
         else:
             return ""
 
+class FileBufferString:
+    def __init__(self, name=None, content=None, contenttype='text/plain'):
+        self.name = name
+        self.content = content
+        self.contenttype = contenttype
 
 class WebClient:
     "Minimal webservice client to do POST request with multipart encoded FORM data"
@@ -436,9 +442,10 @@ class WebClient:
         kwargs = {}
         if httplib2.__version__ >= '0.3.0':
                 kwargs['timeout'] = timeout
-        if httplib2.__version__ >= '0.7.0':
-                kwargs['disable_ssl_certificate_validation'] = cacert is None
-                kwargs['ca_certs'] = cacert
+
+        kwargs['disable_ssl_certificate_validation'] = cacert is None
+        kwargs['ca_certs'] = cacert
+
         self.http = httplib2.Http(**kwargs)
         self.trace = trace
         self.location = location
@@ -452,21 +459,31 @@ class WebClient:
         boundary = _make_boundary()
         buf = StringIO()
         for key, value in list(vars.items()):
-            if not isinstance(value, file):
+            if not (isinstance(value, IOBase) or isinstance(value, FileBufferString)):
                 buf.write('--%s\r\n' % boundary)
                 buf.write('Content-Disposition: form-data; name="%s"' % key)
                 buf.write('\r\n\r\n' + value + '\r\n')
             else:
-                fd = value
-                file_size = os.fstat(fd.fileno())[stat.ST_SIZE]
-                filename = os.path.basename(fd.name)
-                contenttype = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+                if isinstance(value, FileBufferString):
+                    filename = value.name
+                    contenttype = value.contenttype
+                    file_size = 0
+                    content = value.content
+                else:
+                    fd = value
+                    file_size = os.fstat(fd.fileno())[stat.ST_SIZE]
+                    filename = os.path.basename(fd.name)
+                    contenttype = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+                    fd.seek(0)
+                    content = fd.read()
+
                 buf.write('--%s\r\n' % boundary)
                 buf.write('Content-Disposition: form-data; name="%s"; filename="%s"\r\n' % (key, filename))
                 buf.write('Content-Type: %s\r\n' % contenttype)
-                # buffer += 'Content-Length: %s\r\n' % file_size
-                fd.seek(0)
-                buf.write('\r\n' + fd.read() + '\r\n')
+                # if file_size:
+                #     buffer += 'Content-Length: %s\r\n' % file_size
+                buf.write('\r\n' + content + '\r\n')
+
         buf.write('--' + boundary + '--\r\n\r\n')
         buf = buf.getvalue()
         return boundary, buf
@@ -513,7 +530,7 @@ class WebClient:
         
         # send the request to the server and store the result:
         response, content = self.http.request(
-            location, self.method, body=body, headers=headers )
+            location.decode('utf-8'), self.method, body=body, headers=headers )
         self.response = response
         self.content = content
 

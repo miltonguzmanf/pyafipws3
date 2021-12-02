@@ -91,12 +91,13 @@ class WSBFEv1(BaseWS):
             imp_total=0.0, imp_neto=0.0, impto_liq=0.0,
             imp_tot_conc=0.0, impto_liq_rni=0.00, imp_op_ex=0.00,
             imp_perc=0.00, imp_iibb=0.00, imp_perc_mun=0.00, imp_internos=0.00,
-            imp_moneda_id=0, imp_moneda_ctz=1.0, **kwargs):
+            imp_moneda_id=0, imp_moneda_ctz=1.0, fecha_venc_pago=None, **kwargs):
         "Creo un objeto factura (interna)"
         # Creo una factura para bonos fiscales electrónicos
 
         fact = {'tipo_cbte': tipo_cbte, 'punto_vta': punto_vta, 
                 'cbte_nro': cbte_nro, 'fecha_cbte': fecha_cbte, 'zona': zona,
+                'fecha_venc_pago': fecha_venc_pago,
                 'tipo_doc': tipo_doc, 'nro_doc':  nro_doc,
                 'imp_total': imp_total, 'imp_neto': imp_neto,
                 'impto_liq': impto_liq, 'impto_liq_rni': impto_liq_rni, 
@@ -107,6 +108,7 @@ class WSBFEv1(BaseWS):
                 'cbtes_asoc': [],
                 'iva': [],
                 'detalles': [],
+                'opcionales': [],
             }
         self.factura = fact
         return True
@@ -126,6 +128,22 @@ class WSBFEv1(BaseWS):
                 'imp_total': imp_total,
                 })
         return True
+
+    def AgregarOpcional(self, opcional_id=0, valor="", **kwarg):
+        "Agrego un dato opcional a una factura (interna)"
+        op = {'opcional_id': opcional_id, 'valor': valor}
+        self.factura['opcionales'].append(op)
+        return True
+
+    def AgregarCmpAsoc(self, tipo=1, pto_vta=0, nro=0, cuit=None, fecha_cbte=None, **kwarg):
+        "Agrego un comprobante asociado a una factura (interna)"
+        cmp_asoc = {'tipo': tipo, 'pto_vta': pto_vta, 'nro': nro}
+        if cuit is not None:
+            cmp_asoc['cuit'] = cuit
+        if fecha_cbte is not None:
+            cmp_asoc['fecha_cbte'] = fecha_cbte
+        self.factura['cbtes_asoc'].append(cmp_asoc)
+        return True
         
     @inicializar_y_capturar_excepciones
     def Authorize(self, id):
@@ -137,6 +155,7 @@ class WSBFEv1(BaseWS):
                 'Id': id,
                 'Zona': f['zona'], 
                 'Fecha_cbte': f['fecha_cbte'],
+                'Fecha_vto_pago': f['fecha_venc_pago'],
                 'Tipo_cbte': f['tipo_cbte'],
                 'Punto_vta': f['punto_vta'],
                 'Cbte_nro': f['cbte_nro'],
@@ -150,8 +169,17 @@ class WSBFEv1(BaseWS):
                 'Imp_perc': f['imp_perc'], 'Imp_perc_mun': f['imp_perc_mun'],                
                 'Imp_iibb': f['imp_iibb'],
                 'Imp_internos': f['imp_internos'],
-                'Items': [
-                    {'Item': {
+                'CbtesAsoc': f['cbtes_asoc'] and
+                             {'CbteAsoc': [{
+                                 'Tipo_cbte': cbte_asoc['tipo'],
+                                 'Punto_vta': cbte_asoc['pto_vta'],
+                                 'Cbte_nro': cbte_asoc['nro'],
+                                 'Cuit': cbte_asoc.get('cuit'),
+                                 'Fecha_cbte': cbte_asoc.get('fecha_cbte'),
+                             }
+                                 for cbte_asoc in f['cbtes_asoc']]} or None,
+                'Items': f['detalles'] and
+                    {'Item': [{
                         'Pro_codigo_ncm': d['ncm'],
                         'Pro_codigo_sec': d['sec'],
                         'Pro_ds': d['ds'],
@@ -161,7 +189,12 @@ class WSBFEv1(BaseWS):
                         'Imp_bonif': d['bonif'],
                         'Imp_total': d['imp_total'],
                         'Iva_id': d['iva_id'],
-                     }} for d in f['detalles']],                    
+                     } for d in f['detalles']]} or None,
+                'Opcionales': f['opcionales'] and
+                              {'Opcional': [{
+                                  'Id': opcional['opcional_id'],
+                                  'Valor': opcional['valor'],
+                              } for opcional in f['opcionales']]} or None,
             })
 
         result = ret['BFEAuthorizeResult']
