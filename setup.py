@@ -588,7 +588,7 @@ if "sdist" in sys.argv and os.path.exists("README.md") and sys.platform == "linu
 
 
 
-setup(name="PyAfipWs3",
+setup(name="PyAfipWs",
       version=__version__,
       description=desc,
       long_description=long_desc,

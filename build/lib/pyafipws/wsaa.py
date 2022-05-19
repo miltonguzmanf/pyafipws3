@@ -26,7 +26,6 @@ import unicodedata
 from pysimplesoap.client import SimpleXMLElement
 from .utils import inicializar_y_capturar_excepciones, BaseWS, get_install_dir, \
      exception_info, safe_console, date
-from dicttoxml import dicttoxml
 try:
     from M2Crypto import BIO, Rand, SMIME, SSL
 except ImportError:
@@ -82,17 +81,17 @@ def sign_tra(tra,cert=CERT,privatekey=PRIVATEKEY,passphrase=""):
 
     if BIO:
         # Firmar el texto (tra) usando m2crypto (openssl bindings para python)
-        buf = BIO.MemoryBuffer(bytes(tra, 'utf8'))             # Crear un buffer desde el texto
+        buf = BIO.MemoryBuffer(tra)             # Crear un buffer desde el texto
         #Rand.load_file('randpool.dat', -1)     # Alimentar el PRNG
         s = SMIME.SMIME()                       # Instanciar un SMIME
         # soporte de contraseña de encriptación (clave privada, opcional)
         callback = lambda *args, **kwarg: passphrase
         # Cargar clave privada y certificado
-        if not privatekey.startswith(bytes("-----BEGIN RSA PRIVATE KEY-----", 'utf8')):
+        if not privatekey.startswith("-----BEGIN RSA PRIVATE KEY-----"):
             # leer contenido desde archivo (evitar problemas Applink / MSVCRT)
             if os.path.exists(privatekey) and os.path.exists(cert):
-                privatekey = bytes(open(privatekey).read(), 'utf8')
-                cert = bytes(open(cert).read(), 'utf8')
+                privatekey = open(privatekey).read()
+                cert = open(cert).read()
             else:
                 raise RuntimeError("Archivos no encontrados: %s, %s" % (privatekey, cert))
         # crear buffers en memoria de la clave privada y certificado:
@@ -105,7 +104,7 @@ def sign_tra(tra,cert=CERT,privatekey=PRIVATEKEY,passphrase=""):
         #Rand.save_file('randpool.dat')         # Guardar el estado del PRNG's
 
         # extraer el cuerpo del mensaje (parte firmada)
-        msg = email.message_from_bytes(out.read())
+        msg = email.message_from_string(out.read())
         for part in msg.walk():
             filename = part.get_filename()
             if filename == "smime.p7m":                 # es la parte firmada?
@@ -184,12 +183,12 @@ class WSAA(BaseWS):
         "Carga un certificado digital y extrae los campos más importantes"
         from M2Crypto import BIO, EVP, RSA, X509
         if binary:
-            bio = BIO.MemoryBuffer(bytes(cert, 'utf8'))
+            bio = BIO.MemoryBuffer(cert)
             x509 = X509.load_cert_bio(bio, X509.FORMAT_DER)
         else:
             if not crt.startswith("-----BEGIN CERTIFICATE-----"):
                 crt = open(crt).read()
-            bio = BIO.MemoryBuffer(bytes(crt, 'utf8'))
+            bio = BIO.MemoryBuffer(crt)
             x509 = X509.load_cert_bio(bio, X509.FORMAT_PEM)
         if x509:
             self.Identidad = x509.get_subject().as_text()
@@ -256,9 +255,7 @@ class WSAA(BaseWS):
     @inicializar_y_capturar_excepciones
     def SignTRA(self, tra, cert, privatekey, passphrase=""):
         "Firmar el TRA y devolver CMS"
-        cert = type(cert) == str and cert.encode('latin1') or cert
-        privatekey = type(privatekey) == str and privatekey.encode('latin1') or privatekey
-        return sign_tra(str(tra), cert, privatekey, passphrase.encode("utf8"))
+        return sign_tra(str(tra),cert.encode('latin1'),privatekey.encode('latin1'),passphrase.encode("utf8"))
 
     @inicializar_y_capturar_excepciones
     def LoginCMS(self, cms):
@@ -268,18 +265,6 @@ class WSAA(BaseWS):
         self.xml = ta = SimpleXMLElement(ta_xml)
         self.Token = str(ta.credentials.token)
         self.Sign = str(ta.credentials.sign)
-        self.ExpirationTime = str(ta.header.expirationTime)
-        return ta_xml
-
-    @inicializar_y_capturar_excepciones
-    def getLoginTicketFromCMS(self, cms):
-        "Obtener ticket de autorización (TA)"
-        results = self.client.getLoginTicketFromCMS(cms)
-        ltr = results.get('loginTicketResponse', [])
-        ta_xml = dicttoxml(ltr, custom_root='loginCmsReturn', attr_type=False)
-        self.xml = ta = SimpleXMLElement(ta_xml)
-        self.token = str(ta.credentials.token)
-        self.sign = str(ta.credentials.sign)
         self.ExpirationTime = str(ta.header.expirationTime)
         return ta_xml
             
