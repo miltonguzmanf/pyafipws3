@@ -100,8 +100,8 @@ class IIBB:
 
             xml = self.xml.as_xml()
 
-            xml_code = xml.encode()
-            self.CodigoHash = hashlib.new("md5", xml_code).hexdigest()
+            xml = xml.encode()
+            self.CodigoHash = hashlib.new("md5", xml).hexdigest()
             nombre = "DFEServicioConsulta_%s.xml" % self.CodigoHash
 
             # guardo el xml en el archivo a enviar y luego lo re-abro:
