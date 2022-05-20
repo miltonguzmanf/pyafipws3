@@ -46,7 +46,7 @@ class PyI25:
         #  * http://code.activestate.com/recipes/426069/
 
         wide = basewidth
-        narrow = int(basewidth / 3)
+        narrow = basewidth / 3
 
         # códigos ancho/angostos (wide/narrow) para los dígitos
         bars = ("nnwwn", "wnnnw", "nwnnw", "wwnnn", "nnwnw", "wnwnn", "nwwnn", 

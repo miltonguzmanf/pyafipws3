@@ -19,7 +19,6 @@ __version__ = "1.01b"
 
 import os, sys, tempfile, traceback
 from hashlib import md5
-import hashlib
 from pysimplesoap.simplexml import SimpleXMLElement
 
 from .utils import WebClient
@@ -99,9 +98,7 @@ class IIBB:
             self.xml.contribuyentes.contribuyente.cuitContribuyente = cuit_contribuyente
 
             xml = self.xml.as_xml()
-
-            xml = xml.encode()
-            self.CodigoHash = hashlib.new("md5", xml).hexdigest()
+            self.CodigoHash = md5(xml).hexdigest()
             nombre = "DFEServicioConsulta_%s.xml" % self.CodigoHash
 
             # guardo el xml en el archivo a enviar y luego lo re-abro:
